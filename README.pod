@@ -1,14 +1,13 @@
 =pod
 
 =for poe_tests
+BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+use POE 'Loop::Mojo_IOLoop';
 sub skip_tests {
 	"Mojo::IOLoop tests require the Mojo::IOLoop module" if (
 		do { eval "use Mojo::IOLoop"; $@ }
 	);
 }
-
-package
-	POE::Kernel;
 
 =head1 NAME
 
