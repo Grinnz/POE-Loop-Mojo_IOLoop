@@ -5,6 +5,13 @@ use warnings;
 
 our $VERSION = '0.001';
 
+=for poe_tests
+sub skip_tests {
+	"Mojo::IOLoop tests require the Mojo::IOLoop module" if (
+		do { eval "use Mojo::IOLoop"; $@ }
+	);
+}
+
 package
 	POE::Kernel;
 

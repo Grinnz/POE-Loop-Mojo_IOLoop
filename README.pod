@@ -1,5 +1,15 @@
 =pod
 
+=for poe_tests
+sub skip_tests {
+	"Mojo::IOLoop tests require the Mojo::IOLoop module" if (
+		do { eval "use Mojo::IOLoop"; $@ }
+	);
+}
+
+package
+	POE::Kernel;
+
 =head1 NAME
 
 POE::Loop::Mojo_IOLoop - a bridge that allows POE to be driven by Mojo::IOLoop
