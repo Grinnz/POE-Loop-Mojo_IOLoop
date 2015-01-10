@@ -273,7 +273,7 @@ See L<POE::Loop>.
 
  use POE qw(Loop::Mojo_IOLoop);
  
- use POE::Kernel { loop => Mojo::IOLoop };
+ use POE::Kernel { loop => 'Mojo::IOLoop' };
  
  BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
  use POE;
