@@ -22,7 +22,6 @@ package
 
 use Mojo::IOLoop;
 use Time::HiRes;
-use Scalar::Util;
 
 use constant MOJO_DEBUG => $ENV{POE_LOOP_MOJO_DEBUG} || 0;
 
@@ -35,6 +34,7 @@ sub loop_initialize {
 	my $self = shift;
 	
 	if (MOJO_DEBUG) {
+		require Scalar::Util;
 		my $class = Scalar::Util::blessed(Mojo::IOLoop->singleton->reactor);
 		warn "-- Initialized loop with reactor $class\n";
 	}
