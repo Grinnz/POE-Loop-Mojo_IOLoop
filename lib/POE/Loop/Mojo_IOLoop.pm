@@ -22,6 +22,9 @@ package
 
 use Mojo::IOLoop;
 use Time::HiRes;
+use Scalar::Util;
+
+use constant MOJO_DEBUG => $ENV{POE_LOOP_MOJO_DEBUG} || 0;
 
 my $_timer_id;
 my @fileno_watcher;
@@ -31,11 +34,20 @@ my @fileno_watcher;
 sub loop_initialize {
 	my $self = shift;
 	
-	$_timer_id = Mojo::IOLoop->timer(0 => \&_loop_event_callback);
+	if (MOJO_DEBUG) {
+		my $class = Scalar::Util::blessed(Mojo::IOLoop->singleton->reactor);
+		warn "-- Initialized loop with reactor $class\n";
+	}
+	
+	unless (defined $_timer_id) {
+		$_timer_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
+	}
 }
 
 sub loop_finalize {
 	my $self = shift;
+	
+	warn "-- Finalized loop\n" if MOJO_DEBUG;
 	
 	foreach my $fd (0..$#fileno_watcher) {
 		POE::Kernel::_warn(
@@ -56,21 +68,34 @@ sub loop_attach_uidestroy {
 
 sub loop_resume_time_watcher {
 	my ($self, $next_time) = @_;
+	
 	$next_time -= Time::HiRes::time;
+	
+	warn "-- Resume time watcher in ${next_time}s\n" if MOJO_DEBUG;
+	
 	Mojo::IOLoop->remove($_timer_id) if defined $_timer_id;
 	$_timer_id = Mojo::IOLoop->timer($next_time => \&_loop_event_callback);
 }
 
 sub loop_reset_time_watcher {
 	my ($self, $next_time) = @_;
-	$self->loop_pause_time_watcher();
+	
+	warn "-- Reset time watcher to $next_time\n" if MOJO_DEBUG;
+	
+	Mojo::IOLoop->remove($_timer_id) if defined $_timer_id;
+	undef $_timer_id;
 	$self->loop_resume_time_watcher($next_time);
 }
 
-sub loop_pause_time_watcher {
-	return unless defined $_timer_id;
-	Mojo::IOLoop->remove($_timer_id);
+sub _loop_resume_timer {
+	Mojo::IOLoop->remove($_timer_id) if defined $_timer_id;
 	undef $_timer_id;
+	$poe_kernel->loop_resume_time_watcher($poe_kernel->get_next_event_time());
+}
+
+sub loop_pause_time_watcher {
+	warn "-- Pause time watcher\n" if MOJO_DEBUG;
+	# does nothing
 }
 
 # Maintain filehandle watchers.
@@ -78,6 +103,11 @@ sub loop_pause_time_watcher {
 sub loop_watch_filehandle {
 	my ($self, $handle, $mode) = @_;
 	my $fileno = fileno $handle;
+	
+	confess "POE::Loop::Mojo_IOLoop does not support MODE_EX" if $mode == MODE_EX;
+	confess "Unknown mode $mode" unless $mode == MODE_RD or $mode == MODE_WR;
+	
+	warn "-- Watch filehandle $fileno, mode $mode\n" if MOJO_DEBUG;
 	
 	# Set up callback if needed
 	unless (defined $fileno_watcher[$fileno]) {
@@ -87,48 +117,57 @@ sub loop_watch_filehandle {
 		});
 	}
 	
-	my $read = $fileno_watcher[$fileno][MODE_RD()] ||= ($mode == MODE_RD);
-	my $write = $fileno_watcher[$fileno][MODE_WR()] ||= ($mode == MODE_WR);
+	$fileno_watcher[$fileno][$mode] = 1;
 	
-	Mojo::IOLoop->singleton->reactor->watch($handle, $read, $write);
+	_update_select_watcher($handle);
 }
 
 sub loop_ignore_filehandle {
 	my ($self, $handle, $mode) = @_;
 	my $fileno = fileno $handle;
 	
-	# Don't bother changing mode unless it was registered
-	if ($fileno_watcher[$fileno][$mode]) {
-		my $read = $fileno_watcher[$fileno][MODE_RD()] &&= !($mode == MODE_RD);
-		my $write = $fileno_watcher[$fileno][MODE_WR()] &&= !($mode == MODE_WR);
-		
-		if ($read or $write) {
-			Mojo::IOLoop->singleton->reactor->watch($handle, $read, $write);
-		} else {
-			Mojo::IOLoop->singleton->reactor->remove($handle);
-			undef $fileno_watcher[$fileno];
-		}
-	}
+	warn "-- Ignore filehandle $fileno, mode $mode\n" if MOJO_DEBUG;
+	
+	undef $fileno_watcher[$fileno][$mode];
+	
+	_update_select_watcher($handle);
 }
 
 sub loop_pause_filehandle {
 	my ($self, $handle, $mode) = @_;
 	my $fileno = fileno $handle;
 	
-	my $read = $fileno_watcher[$fileno][MODE_RD()] && !($mode == MODE_RD);
-	my $write = $fileno_watcher[$fileno][MODE_WR()] && !($mode == MODE_WR);
+	warn "-- Pause filehandle $fileno, mode $mode\n" if MOJO_DEBUG;
 	
-	Mojo::IOLoop->singleton->reactor->watch($handle, $read, $write);
+	$fileno_watcher[$fileno][$mode] = 0;
+	
+	_update_select_watcher($handle);
 }
 
 sub loop_resume_filehandle {
 	my ($self, $handle, $mode) = @_;
 	my $fileno = fileno $handle;
 	
-	my $read = $fileno_watcher[$fileno][MODE_RD()] || ($mode == MODE_RD);
-	my $write = $fileno_watcher[$fileno][MODE_WR()] || ($mode == MODE_WR);
+	warn "-- Resume filehandle $fileno, mode $mode\n" if MOJO_DEBUG;
 	
-	Mojo::IOLoop->singleton->reactor->watch($handle, $read, $write);
+	$fileno_watcher[$fileno][$mode] = 1;
+	
+	_update_select_watcher($handle);
+}
+
+sub _update_select_watcher {
+	my ($handle) = @_;
+	my $fileno = fileno $handle;
+	
+	my ($read, $write) = @{$fileno_watcher[$fileno]}[MODE_RD(),MODE_WR()];
+	
+	# Don't remove watcher unless both read and write have been ignored
+	if (defined $read or defined $write) {
+		Mojo::IOLoop->singleton->reactor->watch($handle, $read, $write);
+	} else {
+		Mojo::IOLoop->singleton->reactor->remove($handle);
+		undef $fileno_watcher[$fileno];
+	}
 }
 
 # Timer callback to dispatch events.
@@ -136,8 +175,16 @@ sub loop_resume_filehandle {
 sub _loop_event_callback {
 	my $self = $poe_kernel;
 	
+	warn "-- Timer callback\n" if MOJO_DEBUG;
+	
 	$self->_data_ev_dispatch_due();
 	$self->_test_if_kernel_is_idle();
+	
+	undef $_timer_id;
+	
+	if ($self->get_event_count()) {
+		$_timer_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
+	}
 	
 	# Transferring control back to Mojo::IOLoop; this is idle time.
 }
@@ -150,6 +197,9 @@ sub _loop_select_callback {
 	
 	my $mode = $writable ? MODE_WR : MODE_RD;
 	
+	warn "-- Select callback for filehandle $fileno, mode $mode\n"
+		if MOJO_DEBUG;
+	
 	$self->_data_handle_enqueue_ready($mode, $fileno);
 	$self->_test_if_kernel_is_idle();
 }
@@ -157,14 +207,17 @@ sub _loop_select_callback {
 # The event loop itself.
 
 sub loop_do_timeslice {
+	warn "-- Loop timeslice\n" if MOJO_DEBUG;
 	Mojo::IOLoop->one_tick;
 }
 
 sub loop_run {
+	warn "-- Loop run\n" if MOJO_DEBUG;
 	Mojo::IOLoop->start;
 }
 
 sub loop_halt {
+	warn "-- Loop halt\n" if MOJO_DEBUG;
 	Mojo::IOLoop->stop;
 }
 
