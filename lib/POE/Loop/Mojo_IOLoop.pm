@@ -8,11 +8,15 @@ our $VERSION = '0.001';
 
 =for poe_tests
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
-BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+BEGIN { $ENV{MOJO_REACTOR} ||= 'Mojo::Reactor::Poll' }
 sub skip_tests {
 	return "Mojo::IOLoop tests require the Mojo::IOLoop module" if (
 		do { eval "use Mojo::IOLoop"; $@ }
 	);
+	if (shift eq '00_info') {
+		my $reactor = Mojo::IOLoop->singleton->reactor;
+		diag("Using reactor $reactor");
+	}
 }
 
 =cut
@@ -22,20 +26,26 @@ package
 
 use Mojo::IOLoop;
 use Time::HiRes;
+use Scalar::Util;
 
 use constant MOJO_DEBUG => $ENV{POE_LOOP_MOJO_DEBUG} || 0;
 
 my $_timer_id;
 my @fileno_watcher;
+my $_async_check;
 
 # Loop construction and destruction.
 
 sub loop_initialize {
 	my $self = shift;
 	
+	my $class = Scalar::Util::blessed(Mojo::IOLoop->singleton->reactor);
+	if ($class eq 'Mojo::Reactor::EV') {
+		# Workaround to ensure perl signal handlers are called
+		$_async_check = EV::check(sub { });
+	}
+	
 	if (MOJO_DEBUG) {
-		require Scalar::Util;
-		my $class = Scalar::Util::blessed(Mojo::IOLoop->singleton->reactor);
 		warn "-- Initialized loop with reactor $class\n";
 	}
 	
@@ -56,6 +66,7 @@ sub loop_finalize {
 	}
 	
 	$self->loop_ignore_all_signals();
+	undef $_async_check;
 }
 
 # Signal handler maintenance functions.

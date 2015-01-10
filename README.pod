@@ -2,11 +2,15 @@
 
 =for poe_tests
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
-BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+BEGIN { $ENV{MOJO_REACTOR} ||= 'Mojo::Reactor::Poll' }
 sub skip_tests {
 	return "Mojo::IOLoop tests require the Mojo::IOLoop module" if (
 		do { eval "use Mojo::IOLoop"; $@ }
 	);
+	if (shift eq '00_info') {
+		my $reactor = Mojo::IOLoop->singleton->reactor;
+		diag("Using reactor $reactor");
+	}
 }
 
 =head1 NAME
