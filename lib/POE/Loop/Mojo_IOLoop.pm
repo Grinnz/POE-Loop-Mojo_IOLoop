@@ -10,7 +10,7 @@ our $VERSION = '0.001';
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
 BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
 sub skip_tests {
-	"Mojo::IOLoop tests require the Mojo::IOLoop module" if (
+	return "Mojo::IOLoop tests require the Mojo::IOLoop module" if (
 		do { eval "use Mojo::IOLoop"; $@ }
 	);
 }
@@ -70,6 +70,7 @@ sub loop_resume_time_watcher {
 	my ($self, $next_time) = @_;
 	
 	$next_time -= Time::HiRes::time;
+	$next_time = 0 if $next_time < 0;
 	
 	warn "-- Resume time watcher in ${next_time}s\n" if MOJO_DEBUG;
 	
