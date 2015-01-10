@@ -7,7 +7,8 @@ use POE::Loop::PerlSignals;
 our $VERSION = '0.001';
 
 =for poe_tests
-BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop'; $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
+BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
 sub skip_tests {
 	"Mojo::IOLoop tests require the Mojo::IOLoop module" if (
 		do { eval "use Mojo::IOLoop"; $@ }
