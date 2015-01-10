@@ -271,11 +271,25 @@ POE::Loop::Mojo_IOLoop - a bridge that allows POE to be driven by Mojo::IOLoop
 
 See L<POE::Loop>.
 
+ use POE qw(Loop::Mojo_IOLoop);
+ 
+ use POE::Kernel { loop => Mojo::IOLoop };
+ 
+ BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
+ use POE;
+
 =head1 DESCRIPTION
 
 L<POE::Loop::Mojo_IOLoop> implements the interface documented in L<POE::Loop>.
 Therefore it has no documentation of its own. Please see L<POE::Loop> for more
 details.
+
+When using L<Mojo::IOLoop> with L<POE>, the loop must be set explicitly or
+L<POE> will detect multiple event loops and fail. You can set the event loop
+by setting the environment variable C<POE_EVENT_LOOP> to
+C<POE::Loop::Mojo_IOLoop> before L<POE> is loaded, or by including it in the
+C<use> directive when initially loading L<POE>. See
+L<POE::Kernel/"Using POE with Other Event Loops"> for more information.
 
 =head1 BUGS
 
