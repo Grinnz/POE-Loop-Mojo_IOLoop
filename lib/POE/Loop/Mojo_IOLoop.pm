@@ -31,8 +31,10 @@ use Scalar::Util;
 use constant MOJO_DEBUG => $ENV{POE_LOOP_MOJO_DEBUG} || 0;
 
 my $_timer_id;
+my $_idle_id;
 my @fileno_watcher;
 my $_async_check;
+my $DIE_MESSAGE;
 
 # Loop construction and destruction.
 
@@ -43,14 +45,14 @@ sub loop_initialize {
 	if ($class eq 'Mojo::Reactor::EV') {
 		# Workaround to ensure perl signal handlers are called
 		$_async_check = EV::check(sub { });
+		# EV will ignore exceptions unless this is set
+		$EV::DIED = \&_die_handler;
 	}
 	
-	if (MOJO_DEBUG) {
-		warn "-- Initialized loop with reactor $class\n";
-	}
+	warn "-- Initialized loop with reactor $class\n" if MOJO_DEBUG;
 	
-	unless (defined $_timer_id) {
-		$_timer_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
+	unless (defined $_idle_id) {
+		$_idle_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
 	}
 }
 
@@ -67,6 +69,18 @@ sub loop_finalize {
 	
 	$self->loop_ignore_all_signals();
 	undef $_async_check;
+}
+
+sub _die_handler {
+	warn "-- Died $@\n" if MOJO_DEBUG;
+	
+	# EV doesn't let you rethrow an error here, so we have
+	# to stop the loop and get the error later
+	$DIE_MESSAGE = $@;
+	
+	# This will cause the EV::run call in loop_run to return,
+	# and cause the process to die.
+	EV::break();
 }
 
 # Signal handler maintenance functions.
@@ -100,13 +114,12 @@ sub loop_reset_time_watcher {
 }
 
 sub _loop_resume_timer {
-	Mojo::IOLoop->remove($_timer_id) if defined $_timer_id;
-	undef $_timer_id;
+	Mojo::IOLoop->remove($_idle_id) if defined $_idle_id;
+	undef $_idle_id;
 	$poe_kernel->loop_resume_time_watcher($poe_kernel->get_next_event_time());
 }
 
 sub loop_pause_time_watcher {
-	warn "-- Pause time watcher\n" if MOJO_DEBUG;
 	# does nothing
 }
 
@@ -195,7 +208,7 @@ sub _loop_event_callback {
 	undef $_timer_id;
 	
 	if ($self->get_event_count()) {
-		$_timer_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
+		$_idle_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
 	}
 	
 	# Transferring control back to Mojo::IOLoop; this is idle time.
@@ -209,6 +222,19 @@ sub _loop_select_callback {
 	
 	my $mode = $writable ? MODE_WR : MODE_RD;
 	
+	# Make sure this callback is actually registered
+	return unless defined $fileno_watcher[$fileno];
+	
+	# Workaround for write-only mode receiving read callback
+	unless ($fileno_watcher[$fileno][$mode]) {
+		if ($mode == MODE_RD and $fileno_watcher[$fileno][MODE_WR()]) {
+			# Use write callback
+			$mode = MODE_WR;
+		} else {
+			return;
+		}
+	}
+	
 	warn "-- Select callback for filehandle $fileno, mode $mode\n"
 		if MOJO_DEBUG;
 	
@@ -219,13 +245,17 @@ sub _loop_select_callback {
 # The event loop itself.
 
 sub loop_do_timeslice {
-	warn "-- Loop timeslice\n" if MOJO_DEBUG;
-	Mojo::IOLoop->one_tick;
 }
 
 sub loop_run {
 	warn "-- Loop run\n" if MOJO_DEBUG;
 	Mojo::IOLoop->start;
+	
+	if (defined $DIE_MESSAGE) {
+		my $message = $DIE_MESSAGE;
+		undef $DIE_MESSAGE;
+		die $message;
+	}
 }
 
 sub loop_halt {
