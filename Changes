@@ -1,5 +1,6 @@
 {{$NEXT}}
   - Fix synopsis typo
+  - Use isa() to determine Mojo reactor backend
 
 0.001     2015-01-10 17:08:42-05:00 America/New_York
   - First release

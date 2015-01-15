@@ -26,7 +26,6 @@ package
 
 use Mojo::IOLoop;
 use Time::HiRes;
-use Scalar::Util;
 
 use constant MOJO_DEBUG => $ENV{POE_LOOP_MOJO_DEBUG} || 0;
 
@@ -41,15 +40,15 @@ my $DIE_MESSAGE;
 sub loop_initialize {
 	my $self = shift;
 	
-	my $class = Scalar::Util::blessed(Mojo::IOLoop->singleton->reactor);
-	if ($class eq 'Mojo::Reactor::EV') {
+	my $reactor = Mojo::IOLoop->singleton->reactor;
+	if ($reactor->isa('Mojo::Reactor::EV')) {
 		# Workaround to ensure perl signal handlers are called
 		$_async_check = EV::check(sub { });
 		# EV will ignore exceptions unless this is set
 		$EV::DIED = \&_die_handler;
 	}
 	
-	warn "-- Initialized loop with reactor $class\n" if MOJO_DEBUG;
+	warn "-- Initialized loop with reactor $reactor\n" if MOJO_DEBUG;
 	
 	unless (defined $_idle_id) {
 		$_idle_id = Mojo::IOLoop->next_tick(\&_loop_resume_timer);
