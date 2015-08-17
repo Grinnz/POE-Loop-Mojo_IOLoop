@@ -4,7 +4,7 @@
       "Dan Book <dbook@cpan.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 5.035, CPAN::Meta::Converter version 2.150001",
+   "generated_by" : "Dist::Zilla version 5.039, CPAN::Meta::Converter version 2.150005",
    "license" : [
       "artistic_2"
    ],
@@ -13,6 +13,16 @@
       "version" : 2
    },
    "name" : "POE-Loop-Mojo_IOLoop",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "xt",
+         "inc",
+         "share",
+         "eg",
+         "examples"
+      ]
+   },
    "prereqs" : {
       "configure" : {
          "requires" : {
@@ -22,7 +32,8 @@
       },
       "develop" : {
          "requires" : {
-            "Dist::Zilla::PluginBundle::Author::DBOOK" : "0.003"
+            "Dist::Zilla::PluginBundle::Author::DBOOK" : "0.010",
+            "Test::Pod" : "1.41"
          }
       },
       "runtime" : {
@@ -58,6 +69,10 @@
          "web" : "https://github.com/Grinnz/POE-Loop-Mojo_IOLoop"
       }
    },
-   "version" : "0.003"
+   "version" : "0.003",
+   "x_contributors" : [
+      "Dan Book <grinnz@grinnz.com>",
+      "Grinnz <grinnz@gmail.com>"
+   ]
 }
 
