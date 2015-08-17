@@ -6,4 +6,4 @@ perl:
   - "5.14"
   - "5.12"
   - "5.10"
-install: perl Makefile.PL --default && make test
+script: perl Makefile.PL --default && make test
