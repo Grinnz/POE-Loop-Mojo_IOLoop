@@ -38,7 +38,7 @@ my %WriteMakefileArgs = (
 
 %WriteMakefileArgs = (
     %WriteMakefileArgs,
-    (clean => { FILES => 't/30_loops/*/* t/30_loops/* t/30_loops' }),
+    (clean => { FILES => 't/30_loops/*/* t/30_loops/* t/30_loops run_network_tests' }),
 );
 
 my %FallbackPrereqs = (
