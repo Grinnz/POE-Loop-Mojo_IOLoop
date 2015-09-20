@@ -6,4 +6,7 @@ perl:
   - "5.14"
   - "5.12"
   - "5.10"
+env:
+  - AUTOMATED_TESTING=1
+install: cpanm --quiet --installdeps --notest --with-develop .
 script: perl Makefile.PL --default && make test
