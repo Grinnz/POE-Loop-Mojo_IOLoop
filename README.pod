@@ -3,6 +3,7 @@
 =for poe_tests
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
 BEGIN { $ENV{MOJO_REACTOR} ||= 'Mojo::Reactor::Poll' }
+BEGIN { $ENV{POE_LOOP_USES_POLL} = 1 }
 use Mojo::IOLoop;
 sub skip_tests {
 	if ($_[0] eq '00_info') {
