@@ -1,4 +1,5 @@
 use strict;
+use warnings;
 
 package POE::Loop::Mojo_IOLoop;
 
@@ -9,14 +10,13 @@ our $VERSION = '0.003';
 =for poe_tests
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
 BEGIN { $ENV{MOJO_REACTOR} ||= 'Mojo::Reactor::Poll' }
+use Mojo::IOLoop;
 sub skip_tests {
-	return "Mojo::IOLoop tests require the Mojo::IOLoop module" if (
-		do { eval "use Mojo::IOLoop"; $@ }
-	);
-	if (shift eq '00_info') {
+	if ($_[0] eq '00_info') {
 		my $reactor = Mojo::IOLoop->singleton->reactor;
 		diag("Using reactor $reactor");
 	}
+	return undef;
 }
 
 =cut
