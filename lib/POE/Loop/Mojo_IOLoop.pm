@@ -5,7 +5,7 @@ package POE::Loop::Mojo_IOLoop;
 
 use POE::Loop::PerlSignals;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 =for poe_tests
 BEGIN { $ENV{POE_EVENT_LOOP} = 'POE::Loop::Mojo_IOLoop' }
